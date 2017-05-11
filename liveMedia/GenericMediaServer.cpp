@@ -138,6 +138,8 @@ void GenericMediaServer::cleanup() {
 
 #define LISTEN_BACKLOG_SIZE 20
 
+#define ALLOW_SERVER_PORT_REUSE
+
 int GenericMediaServer::setUpOurSocket(UsageEnvironment& env, Port& ourPort) {
   int ourSocket = -1;
   
