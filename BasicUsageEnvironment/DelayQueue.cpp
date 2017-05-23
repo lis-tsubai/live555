@@ -127,12 +127,12 @@ void DelayQueue::addEntry(DelayQueueEntry* newEntry) {
   synchronize();
 
   DelayQueueEntry* cur = head();
-  while (newEntry->fDeltaTimeRemaining >= cur->fDeltaTimeRemaining) {
+  while (cur != this && newEntry->fDeltaTimeRemaining >= cur->fDeltaTimeRemaining) {
     newEntry->fDeltaTimeRemaining -= cur->fDeltaTimeRemaining;
     cur = cur->fNext;
   }
 
-  cur->fDeltaTimeRemaining -= newEntry->fDeltaTimeRemaining;
+  if (cur != this) cur->fDeltaTimeRemaining -= newEntry->fDeltaTimeRemaining;
 
   // Add "newEntry" to the queue, just before "cur":
   newEntry->fNext = cur;
@@ -156,7 +156,7 @@ void DelayQueue::updateEntry(intptr_t tokenToFind, DelayInterval newDelay) {
 void DelayQueue::removeEntry(DelayQueueEntry* entry) {
   if (entry == NULL || entry->fNext == NULL) return;
 
-  entry->fNext->fDeltaTimeRemaining += entry->fDeltaTimeRemaining;
+  if (entry->fNext != this) entry->fNext->fDeltaTimeRemaining += entry->fDeltaTimeRemaining;
   entry->fPrev->fNext = entry->fNext;
   entry->fNext->fPrev = entry->fPrev;
   entry->fNext = entry->fPrev = NULL;
@@ -211,12 +211,12 @@ void DelayQueue::synchronize() {
 
   // Then, adjust the delay queue for any entries whose time is up:
   DelayQueueEntry* curEntry = head();
-  while (timeSinceLastSync >= curEntry->fDeltaTimeRemaining) {
+  while (curEntry != this && timeSinceLastSync >= curEntry->fDeltaTimeRemaining) {
     timeSinceLastSync -= curEntry->fDeltaTimeRemaining;
     curEntry->fDeltaTimeRemaining = DELAY_ZERO;
     curEntry = curEntry->fNext;
   }
-  curEntry->fDeltaTimeRemaining -= timeSinceLastSync;
+  if (curEntry != this) curEntry->fDeltaTimeRemaining -= timeSinceLastSync;
 }
 
 
