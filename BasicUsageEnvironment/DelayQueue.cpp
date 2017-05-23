@@ -113,6 +113,11 @@ void DelayQueueEntry::handleTimeout() {
 DelayQueue::DelayQueue()
   : DelayQueueEntry(ETERNITY) {
   fLastSyncTime = TimeNow();
+
+  pthread_mutexattr_t mta;
+  pthread_mutexattr_init(&mta);
+  pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_RECURSIVE);
+  pthread_mutex_init(&m_mutex, &mta);
 }
 
 DelayQueue::~DelayQueue() {
@@ -121,9 +126,12 @@ DelayQueue::~DelayQueue() {
     removeEntry(entryToRemove);
     delete entryToRemove;
   }
+
+  pthread_mutex_destroy(&m_mutex);
 }
 
 void DelayQueue::addEntry(DelayQueueEntry* newEntry) {
+  pthread_mutex_lock(&m_mutex);
   synchronize();
 
   DelayQueueEntry* cur = head();
@@ -138,6 +146,7 @@ void DelayQueue::addEntry(DelayQueueEntry* newEntry) {
   newEntry->fNext = cur;
   newEntry->fPrev = cur->fPrev;
   cur->fPrev = newEntry->fPrev->fNext = newEntry;
+  pthread_mutex_unlock(&m_mutex);
 }
 
 void DelayQueue::updateEntry(DelayQueueEntry* entry, DelayInterval newDelay) {
@@ -149,34 +158,46 @@ void DelayQueue::updateEntry(DelayQueueEntry* entry, DelayInterval newDelay) {
 }
 
 void DelayQueue::updateEntry(intptr_t tokenToFind, DelayInterval newDelay) {
+  pthread_mutex_lock(&m_mutex);
   DelayQueueEntry* entry = findEntryByToken(tokenToFind);
   updateEntry(entry, newDelay);
+  pthread_mutex_unlock(&m_mutex);
 }
 
 void DelayQueue::removeEntry(DelayQueueEntry* entry) {
   if (entry == NULL || entry->fNext == NULL) return;
 
+  pthread_mutex_lock(&m_mutex);
   if (entry->fNext != this) entry->fNext->fDeltaTimeRemaining += entry->fDeltaTimeRemaining;
   entry->fPrev->fNext = entry->fNext;
   entry->fNext->fPrev = entry->fPrev;
   entry->fNext = entry->fPrev = NULL;
   // in case we should try to remove it again
+  pthread_mutex_unlock(&m_mutex);
 }
 
 DelayQueueEntry* DelayQueue::removeEntry(intptr_t tokenToFind) {
+  pthread_mutex_lock(&m_mutex);
   DelayQueueEntry* entry = findEntryByToken(tokenToFind);
   removeEntry(entry);
+  pthread_mutex_unlock(&m_mutex);
   return entry;
 }
 
-DelayInterval const& DelayQueue::timeToNextAlarm() {
-  if (head()->fDeltaTimeRemaining == DELAY_ZERO) return DELAY_ZERO; // a common case
-
+DelayInterval DelayQueue::timeToNextAlarm() {
+  pthread_mutex_lock(&m_mutex);
+  if (head()->fDeltaTimeRemaining == DELAY_ZERO) {
+    pthread_mutex_unlock(&m_mutex);
+    return DELAY_ZERO; // a common case
+  }
   synchronize();
-  return head()->fDeltaTimeRemaining;
+  DelayInterval ret = head()->fDeltaTimeRemaining;
+  pthread_mutex_unlock(&m_mutex);
+  return ret;
 }
 
 void DelayQueue::handleAlarm() {
+  pthread_mutex_lock(&m_mutex);
   if (head()->fDeltaTimeRemaining != DELAY_ZERO) synchronize();
 
   if (head()->fDeltaTimeRemaining == DELAY_ZERO) {
@@ -186,6 +207,7 @@ void DelayQueue::handleAlarm() {
 
     toRemove->handleTimeout();
   }
+  pthread_mutex_unlock(&m_mutex);
 }
 
 DelayQueueEntry* DelayQueue::findEntryByToken(intptr_t tokenToFind) {

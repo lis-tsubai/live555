@@ -157,7 +157,12 @@ private:
 
 ///// DelayQueue /////
 
+#include <pthread.h>
+
 class DelayQueue: public DelayQueueEntry {
+private:
+  pthread_mutex_t m_mutex;
+
 public:
   DelayQueue();
   virtual ~DelayQueue();
@@ -168,7 +173,7 @@ public:
   void removeEntry(DelayQueueEntry* entry); // but doesn't delete it
   DelayQueueEntry* removeEntry(intptr_t tokenToFind); // but doesn't delete it
 
-  DelayInterval const& timeToNextAlarm();
+  DelayInterval timeToNextAlarm();
   void handleAlarm();
 
 private:

@@ -68,7 +68,7 @@ void BasicTaskScheduler::SingleStep(unsigned maxDelayTime) {
   fd_set writeSet = fWriteSet; // ditto
   fd_set exceptionSet = fExceptionSet; // ditto
 
-  DelayInterval const& timeToDelay = fDelayQueue.timeToNextAlarm();
+  DelayInterval timeToDelay = fDelayQueue.timeToNextAlarm();
   struct timeval tv_timeToDelay;
   tv_timeToDelay.tv_sec = timeToDelay.seconds();
   tv_timeToDelay.tv_usec = timeToDelay.useconds();
